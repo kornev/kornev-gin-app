@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="error" dest="err" strict="true">
+    <Appenders>
+        <Console name="STDERR" target="SYSTEM_ERR">
+            <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} [%-5p] [%c{1.}] %m%n" />
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Logger name="gin.core" level="INFO" additivity="false">
+            <AppenderRef ref="STDERR" />
+        </Logger>
+        <Root level="WARN" additivity="false">
+            <AppenderRef ref="STDERR" />
+        </Root>
+    </Loggers>
+</Configuration>

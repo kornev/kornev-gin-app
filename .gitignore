@@ -1,0 +1,12 @@
+# -*- mode: gitignore -*-
+
+.*
+!.gitkeep
+!.keep
+
+!/.gitignore
+!/.gitattributes
+!/.gitmessage
+
+/*.iml
+/target

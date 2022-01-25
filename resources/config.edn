@@ -1,0 +1,8 @@
+{:gin.http/server {:options {:host #str GIN_HOST
+                             :port #int GIN_PORT}
+                   :handler #ref :gin.rpc/handler}
+ :gin.rpc/handler {:metastore #ref :gin.storage/metastore}
+ :gin.storage/metastore {:server-name #str HIVE_METASTORE_HOST
+                         :port-number #int HIVE_METASTORE_PORT
+                         :username #str HIVE_METASTORE_USERNAME
+                         :password #str HIVE_METASTORE_PASSWORD}}

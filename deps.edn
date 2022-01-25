@@ -1,0 +1,36 @@
+{:paths ["src" "resources"]
+ :deps {org.clojure/clojure                       {:mvn/version "1.10.3"}
+        integrant/integrant                       {:mvn/version "0.8.0"}
+        spootnik/signal                           {:mvn/version "0.2.4"}
+        com.github.seancorfield/next.jdbc         {:mvn/version "1.2.761"}
+        hikari-cp/hikari-cp                       {:mvn/version "2.13.0"}
+        com.github.seancorfield/honeysql          {:mvn/version "2.2.840"}
+        org.postgresql/postgresql                 {:mvn/version "42.3.1"}
+        com.github.igrishaev/farseer-handler      {:mvn/version "0.1.1"}
+        com.github.igrishaev/farseer-http         {:mvn/version "0.1.1"}
+        ring/ring-jetty-adapter                   {:mvn/version "1.9.4"}
+        org.clojure/tools.logging                 {:mvn/version "1.2.4"}
+        org.slf4j/slf4j-api                       {:mvn/version "1.7.32"}
+        org.apache.logging.log4j/log4j-slf4j-impl {:mvn/version "2.17.1"}}
+ :aliases {:code-formatter {:replace-deps {cljfmt/cljfmt {:mvn/version "0.8.0"}}
+                            :main-opts ["-m" "cljfmt.main"]}
+           :code-coverage {:extra-paths ["test"]
+                           :extra-deps {cloverage/cloverage {:mvn/version "1.2.2"}}
+                           :main-opts ["-m" "cloverage.coverage"]}
+           :build {:deps {io.github.seancorfield/build-clj
+                          {:git/tag "v0.6.7" :git/sha "22c2d09"}}
+                   :ns-default build}
+           :test {:extra-paths ["test"]
+                  :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}
+                                io.github.cognitect-labs/test-runner
+                                {:git/tag "v0.5.0" :git/sha "48c3c67"}}}
+           :repl {:extra-paths ["dev"]
+                  :extra-deps {nrepl/nrepl                         {:mvn/version "0.9.0"}
+                               cider/cider-nrepl                   {:mvn/version "0.27.4"}
+                               com.github.igrishaev/farseer-client {:mvn/version "0.1.1"}
+                               fipp/fipp                           {:mvn/version "0.6.25"}
+                               integrant/repl                      {:mvn/version "0.3.2"}}
+                  :main-opts  ["-m" "nrepl.cmdline"
+                               "-m" "cider.nrepl/cider-middleware"
+                               "-i"
+                               "-p" 37904]}}}
