@@ -1,7 +1,6 @@
-;(ns lighthouse.core-test
-;  (:require [clojure.test :refer :all]
-;            [lighthouse.core :refer :all]))
-;
-;(deftest a-test
-;  (testing "FIXME, I fail."
-;    (is (= 1 1))))
+(ns gin.core-test
+  (:require [clojure.test :refer :all]))
+
+(deftest a-test
+  (testing "ALL FINE, I don't fail."
+    (is (= 1 1))))

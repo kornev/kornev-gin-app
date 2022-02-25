@@ -1,13 +1,13 @@
 (ns gin.http
   (:require [integrant.core :as ig]
             [ring.adapter.jetty :refer [run-jetty]])
-  (:import [org.eclipse.jetty.server Server]))
+  (:import (org.eclipse.jetty.util.component LifeCycle)))
 
 (defmethod ig/init-key ::server
-  [_ {:keys [handler options]}]
+  [_ {:keys [handler jetty-spec]}]
   (run-jetty handler
-             (assoc options :join? false)))
+             (assoc jetty-spec :join? false)))
 
 (defmethod ig/halt-key! ::server
   [_ server]
-  (.stop ^Server server))
+  (.stop ^LifeCycle server))
