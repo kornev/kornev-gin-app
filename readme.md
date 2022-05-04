@@ -2,11 +2,11 @@
 
 ## Using Gin
 
-Method **tab/desc**:
+Method **table/describe**:
 
 ```shell
 curl -s -X POST 'http://127.0.0.1:8080/rpc' \
-  -d '{"id": 1, "jsonrpc": "2.0", "method": "tab/desc", "params": ["processing", "user_agg"]}' \
+  -d '{"id": 1, "jsonrpc": "2.0", "method": "table/describe", "params": ["processing", "user_agg"]}' \
   -H 'content-type: application/json'
 ```
 
@@ -34,11 +34,11 @@ curl -s -X POST 'http://127.0.0.1:8080/rpc' \
 }
 ```
 
-Method **part/head**:
+Method **partition/list**:
 
 ```shell
 curl -s -X POST 'http://127.0.0.1:8080/rpc' \
-  -d '{"id": 3, "jsonrpc": "2.0", "method": "part/head", "params": [198, 2]}' \
+  -d '{"id": 3, "jsonrpc": "2.0", "method": "partition/list", "params": [198, 2]}' \
   -H 'content-type: application/json'
 ```
 
@@ -85,11 +85,11 @@ curl -s -X POST 'http://127.0.0.1:8080/rpc' \
 }
 ```
 
-Method **part/prev**:
+Method **partition/parent**:
 
 ```shell
 curl -s -X POST 'http://127.0.0.1:8080/rpc' \
-  -d '{"id": 4, "jsonrpc": "2.0", "method": "part/prev", "params": [59, 1626746198]}' \
+  -d '{"id": 4, "jsonrpc": "2.0", "method": "partition/parent", "params": [59, 1626746198]}' \
   -H 'content-type: application/json'
 ```
 
@@ -117,11 +117,11 @@ curl -s -X POST 'http://127.0.0.1:8080/rpc' \
 }
 ```
 
-Method **part/find**:
+Method **partition/find**:
 
 ```shell
 curl -s -X POST 'http://127.0.0.1:8080/rpc' \
-  -d '{"id": 61966, "jsonrpc": "2.0", "method": "part/find", "params": [248, ["2021", "08", "09", "15"]]}' \
+  -d '{"id": 61966, "jsonrpc": "2.0", "method": "partition/find", "params": [248, ["2021", "08", "09", "15"]]}' \
   -H 'content-type: application/json'
 ```
 
@@ -167,13 +167,13 @@ curl -s -X POST 'http://127.0.0.1:8080/rpc' \
 }
 ```
 
-Method **part/mark**:
+Method **partition/attach**:
 
 ```clojure
 (echo
-    (rpc :part/mark [#_(TBL_ID) 261
-                     #_(PART_KEY_VALS) ["2019-11-22" "moscow" 13]
-                     #_(DATA_LOCATION) "/user/pmp/input"]))
+    (rpc :partition/attach [#_(TBL_ID) 261
+                            #_(PART_KEY_VALS) ["2019-11-22" "moscow" 13]
+                            #_(DATA_LOCATION) "/user/pmp/input"]))
 ```
 
 ```clojure
@@ -183,7 +183,7 @@ Method **part/mark**:
           :PART_KEY_VALS ["2019-11-22" "moscow" 13],
           :TBL_NAME "test01",
           :CD_ID 261,
-          :ADD_PARTITION_SQL ["ALTER TABLE processing.test01 ADD IF NOT EXISTS PARTITION(dt=date '2019-11-22', city='moscow', num=13)"],
+          :ADD_PARTITION_SQL "ALTER TABLE processing.test01 ADD IF NOT EXISTS PARTITION(dt=date '2019-11-22', city='moscow', num=13)",
           :DATA_LOCATION "/user/pmp/input",
           :DB_NAME "processing",
           :PART_LOCATION "/user/pmp/hive/dt=2019-11-22/city=moscow/num=13",
@@ -210,12 +210,12 @@ Method **part/mark**:
 +------------+--------------+-------------+--------------+-------------+
 ```
 
-Method **part/drop**:
+Method **partition/detach**:
 
 ```clojure
 (echo
- (rpc :part/drop [#_(TBL_ID) 261
-                  #_(PART_KEY_VALS) ["2019-11-22" "moscow" 13]]))
+ (rpc :partition/detach [#_(TBL_ID) 261
+                         #_(PART_KEY_VALS) ["2019-11-22" "moscow" 13]]))
 ```
 
 ```clojure
@@ -242,7 +242,7 @@ Method **part/drop**:
           :PART_ID 64453,
           :PART_LOCATION "/user/pmp/hive/dt=2019-11-22/city=moscow/num=13",
           :TBL_ID 261,
-          :DROP_PARTITION_SQL ["ALTER TABLE processing.test01 DROP IF EXISTS PARTITION(dt=date '2019-11-22', city='moscow', num=13)"],
+          :DROP_PARTITION_SQL "ALTER TABLE processing.test01 DROP IF EXISTS PARTITION(dt=date '2019-11-22', city='moscow', num=13)",
           :LOCATION "hdfs://ensime/user/pmp/hive/dt=2019-11-22/city=moscow/num=13",
           :SD_ID 64704}}
 ```
@@ -262,16 +262,17 @@ Environment variables are required:
 ```text
 GIN_HOST
 GIN_PORT
+HADOOP_NAMENODE_ACTIVE
+HADOOP_NAMENODE_PASSIVE
+HADOOP_PROXY_USER (example: spark)
 HIVE_METASTORE_HOST
 HIVE_METASTORE_PORT
-HIVE_METASTORE_USERNAME
-HIVE_METASTORE_PASSWORD
+HIVE_METASTORE_USER (example: hive)
+HIVE_METASTORE_PASS (example: hive)
 HIVE_HOST
 HIVE_PORT (example: 10000)
-HIVE_USERNAME
-HIVE_PASSWORD
-HADOOP_DEFAULT_FS (example: hdfs://ensime:8020/user/spark)
-HADOOP_JOB_UGI (example: spark)
+HIVE_USER
+HIVE_PASS
 ```
 
 Available endpoints:

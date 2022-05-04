@@ -6,7 +6,22 @@
         </Console>
     </Appenders>
     <Loggers>
+        <Logger name="farseer.handler" level="INFO" additivity="false">
+            <AppenderRef ref="STDERR" />
+        </Logger>
+        <Logger name="org.eclipse.jetty.server.AbstractConnector" level="INFO" additivity="false">
+            <AppenderRef ref="STDERR" />
+        </Logger>
+        <Logger name="com.zaxxer.hikari" level="INFO" additivity="false">
+            <AppenderRef ref="STDERR" />
+        </Logger>
+        <Logger name="com.zaxxer.hikari.HikariConfig" level="DEBUG" additivity="false">
+            <AppenderRef ref="STDERR" />
+        </Logger>
         <Logger name="gin.core" level="INFO" additivity="false">
+            <AppenderRef ref="STDERR" />
+        </Logger>
+        <Logger name="gin.log" level="DEBUG" additivity="false">
             <AppenderRef ref="STDERR" />
         </Logger>
         <Root level="WARN" additivity="false">

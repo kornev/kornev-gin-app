@@ -9,12 +9,15 @@
 
 (def alter-system (partial alter-var-root #'system))
 
-(defn system-start [s]
+(defn system-start
+  [s]
   (let [config (util/read-system s)]
+    (log/info "Initializing components: metastore, hive, hdfs, http and rpc")
     (ig/load-namespaces config)
     (->> config ig/prep ig/init constantly alter-system)))
 
-(defn system-stop []
+(defn system-stop
+  []
   (alter-system ig/halt!))
 
 (with-handler :term
@@ -23,7 +26,8 @@
   (log/info "All components shut down")
   (System/exit 0))
 
-(defn -main []
+(defn -main
+  []
   (try
     (system-start "config.edn")
     (catch Throwable t

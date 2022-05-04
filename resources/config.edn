@@ -1,24 +1,29 @@
-{:gin.http/server {:jetty-spec {:host #str GIN_HOST
-                                :port #int GIN_PORT}
-                   :handler #ref :gin.rpc/handler}
- :gin.rpc/handler {:farseer-spec {}
-                   :metastore #ref :gin.storage/metastore
-                   :hive #ref :gin.storage/hive
-                   :hdfs #ref :gin.storage/hdfs}
- :gin.storage/metastore {:jdbc-spec {:dbtype "postgres"
-                                     :dbname "hive"
-                                     :host #str HIVE_METASTORE_HOST
-                                     :port #int HIVE_METASTORE_PORT
-                                     :user #str HIVE_METASTORE_USERNAME
-                                     :password #str HIVE_METASTORE_PASSWORD}
-                         :hikari-spec {:minimumIdle 1}}
- :gin.storage/hive {:jdbc-spec {:classname "org.apache.hive.jdbc.HiveDriver"
-                                :dbtype "hive2"
-                                :host #str HIVE_HOST
-                                :port #int HIVE_PORT
-                                :user #str HIVE_USERNAME
-                                :password #str HIVE_PASSWORD}
-                    :hikari-spec {:minimumIdle 1}}
- :gin.storage/hdfs {:hadoop-spec {"fs.defaultFS" #str HADOOP_DEFAULT_FS
-                                  "fs.permissions.umask-mode" "0002"
-                                  "hadoop.job.ugi" #str HADOOP_JOB_UGI}}}
+{:gin.ioc/http {:jetty-spec {:host #str GIN_HOST
+                             :port #int GIN_PORT}
+                :handler #ref :gin.ioc/rpc}
+ :gin.ioc/rpc {:farseer-spec {}
+               :metastore #ref :gin.ioc/metastore
+               :hive #ref :gin.ioc/hive
+               :hdfs #ref :gin.ioc/hdfs}
+ :gin.ioc/hdfs {:hadoop-spec {:namenodes [{:host #str HADOOP_NAMENODE_ACTIVE
+                                           :fs-metadata-port 8020
+                                           :web-ui-port 50070}
+                                          {:host #str HADOOP_NAMENODE_PASSIVE
+                                           :fs-metadata-port 8020
+                                           :web-ui-port 50070}]
+                              :user #str HADOOP_PROXY_USER
+                              :props {"fs.permissions.umask-mode" "0002"}}}
+ :gin.ioc/metastore {:jdbc-spec {:dbtype "postgres"
+                                 :dbname "hive"
+                                 :host #str HIVE_METASTORE_HOST
+                                 :port #int HIVE_METASTORE_PORT
+                                 :user #str HIVE_METASTORE_USER
+                                 :password #str HIVE_METASTORE_PASS}
+                     :hikari-spec {:minimumIdle 1}}
+ :gin.ioc/hive {:jdbc-spec {:classname "org.apache.hive.jdbc.HiveDriver"
+                            :dbtype "hive2"
+                            :host #str HIVE_HOST
+                            :port #int HIVE_PORT
+                            :user #str HIVE_USER
+                            :password #str HIVE_PASS}
+                :hikari-spec {:minimumIdle 1}}}

@@ -1,12 +1,13 @@
-(ns gin.storage.hive
-  (:require [next.jdbc :as jdbc]
+(ns gin.rpc.hive
+  (:require [clojure.string :as str]
+            [next.jdbc :as jdbc]
             [next.jdbc.result-set :as result-set]
-            [clojure.string :as str]))
+            [gin.log :refer [wrap-log-execute]]))
 
 (def ^:private cast-f
   {"string" (fn [s] (str "'" s "'"))
-   "date"   (fn [s] (str "date '" s "'"))
-   "int"    str})
+   "date" (fn [s] (str "date '" s "'"))
+   "int" str})
 
 (defn- partition-vals
   [cols types vals]
@@ -26,10 +27,10 @@
 (defn add-partition
   [connectable state]
   (let [add-partition-sql (add-partition-q state)]
-    (jdbc/execute-one! connectable
+    (jdbc/execute-one! (wrap-log-execute connectable "hive/add-partition")
                        add-partition-sql
                        {:builder-fn result-set/as-unqualified-maps})
-    {:ADD_PARTITION_SQL add-partition-sql}))
+    {:ADD_PARTITION_SQL (first add-partition-sql)}))
 
 (defn- drop-partition-q
   [state]
@@ -43,7 +44,7 @@
 (defn drop-partition
   [connectable state]
   (let [drop-partition-sql (drop-partition-q state)]
-    (jdbc/execute-one! connectable
+    (jdbc/execute-one! (wrap-log-execute connectable "hive/drop-partition")
                        drop-partition-sql
                        {:builder-fn result-set/as-unqualified-maps})
-    {:DROP_PARTITION_SQL drop-partition-sql}))
+    {:DROP_PARTITION_SQL (first drop-partition-sql)}))

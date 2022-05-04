@@ -1,6 +1,8 @@
-(ns gin.storage.hdfs
-  (:require [clojure.string :as str])
-  (:import (org.apache.hadoop.fs FileSystem Path)))
+(ns gin.rpc.hdfs
+  (:require [clojure.string :as str]
+            [gin.ioc.jmx :as jmx])
+  (:import (org.apache.hadoop.fs FileSystem
+                                 Path)))
 
 (defn- move
   [^FileSystem fs ^Path src ^Path dst]
@@ -18,22 +20,22 @@
 
 (defn- partition-dir
   [state]
-  (let [db-home (:LOCATION state)
+  (let [tbl-home (:LOCATION state)
         cols (:PART_COLS state)
         vals (:PART_KEY_VALS state)]
-    (->> (map #(str %1 "=" %2 ) cols vals)
+    (->> (map #(str %1 "=" %2) cols vals)
          (str/join "/")
-         (str db-home "/"))))
+         (str tbl-home "/"))))
 
-(defn upload-partition
-  [hadoop-fs state]
+(defn load-partition
+  [hadoop-ctx state]
   (let [src (-> (:DATA_LOCATION state) path)
         dst (-> (partition-dir state) path)]
-    (move hadoop-fs src dst)
-    {:PART_LOCATION (. dst toString)}))
+    (move (jmx/active-fs hadoop-ctx) src dst)
+    {:PART_LOCATION_MOVE (. dst toString)}))
 
 (defn unload-partition
-  [hadoop-fs state]
+  [hadoop-ctx state]
   (let [src (-> state :LOCATION path)]
-    (unlink hadoop-fs src)
-    {:PART_LOCATION (. src toString)}))
+    (unlink (jmx/active-fs hadoop-ctx) src)
+    {:PART_LOCATION_UNLINK (. src toString)}))

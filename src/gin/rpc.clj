@@ -1,77 +1,66 @@
 (ns gin.rpc
   (:require [farseer.http :as http]
             [integrant.core :as ig]
-            [gin.storage.metastore :as metastore]
-            [gin.storage.hive :as hive]
-            [gin.storage.hdfs :as hdfs]))
+            [gin.rpc.metastore :as metastore]
+            [gin.rpc.hive :as hive]
+            [gin.rpc.hdfs :as hdfs]))
 
-(defn rpc-tab-desc
+(defn- f-chain  [coll f]
+  (when-not (nil? coll)
+    (when-let [m (f coll)]
+      (merge coll m))))
+
+(defn table-describe-rpc
   [{:keys [metastore-ds]} [db-name tbl-name]]
-  (reduce #(merge %1 (%2 %1))
-          {:DB_NAME  db-name
+  (reduce f-chain
+          {:DB_NAME db-name
            :TBL_NAME tbl-name}
-          [#(metastore/tab-desc metastore-ds %)
+          [#(metastore/table-describe metastore-ds %)
            #(hash-map :PART_SPEC
-                      (metastore/part-spec metastore-ds %))]))
+                      (metastore/partition-spec metastore-ds %))]))
 
-(defn rpc-part-head
+(defn partition-list-rpc
   [{:keys [metastore-ds]} [tbl-id n]]
-  (for [pm (metastore/part-head metastore-ds {:TBL_ID tbl-id
-                                              :LIMIT  n})
-        :let [sm (metastore/part-spec-vals metastore-ds pm)]]
-    (assoc pm :PART_SPEC sm)))
+  (for [pm (metastore/partition-list metastore-ds {:TBL_ID tbl-id
+                                                   :LIMIT n})
+        :let [sm (metastore/partition-vals-spec metastore-ds pm)]]
+    (assoc pm :PART_SPEC_VAL sm)))
 
-(defn rpc-part-find
+(defn partition-find-rpc
   [{:keys [metastore-ds]} [tbl-id args]]
-  (reduce #(merge %1 (%2 %1))
-          {:TBL_ID           tbl-id
+  (reduce f-chain
+          {:TBL_ID tbl-id
            :PART_KEY_VAL_STR (apply str args)}
-          [#(metastore/part-find metastore-ds %)
+          [#(metastore/partition-find metastore-ds %)
            #(hash-map :PART_SPEC_VAL
-                      (metastore/part-spec-vals metastore-ds %))]))
+                      (metastore/partition-vals-spec metastore-ds %))]))
 
-(defn rpc-part-prev
+(defn partition-parent-rpc
   [{:keys [metastore-ds]} [tbl-id ts]]
-  (reduce #(merge %1 (%2 %1))
-          {:TBL_ID      tbl-id
+  (reduce f-chain
+          {:TBL_ID tbl-id
            :CREATE_TIME ts}
-          [#(metastore/part-prev metastore-ds %)
+          [#(metastore/partition-parent metastore-ds %)
            #(hash-map :PART_SPEC_VAL
-                      (metastore/part-spec-vals metastore-ds %))]))
+                      (metastore/partition-vals-spec metastore-ds %))]))
 
-(defn rpc-part-mark
-  [{:keys [metastore-ds hive-ds hadoop-fs]} [tbl-id args src]]
+(defn partition-attach-rpc
+  [{:keys [metastore-ds hive-ds hadoop-ctx]} [tbl-id args src]]
   (reduce #(merge %1 (%2 %1))
-          {:TBL_ID        tbl-id
+          {:TBL_ID tbl-id
            :PART_KEY_VALS args
            :DATA_LOCATION src}
-          [#(metastore/part-desc metastore-ds %)
-           #(hdfs/upload-partition hadoop-fs %)
+          [#(metastore/partition-describe metastore-ds %)
+           #(hdfs/load-partition hadoop-ctx %)
            #(hive/add-partition hive-ds %)]))
 
-(defn rpc-part-drop
-  [{:keys [metastore-ds hive-ds hadoop-fs]} [tbl-id args]]
+(defn partition-detach-rpc
+  [{:keys [metastore-ds hive-ds hadoop-ctx]} [tbl-id args]]
   (reduce #(merge %1 (%2 %1))
-          {:TBL_ID           tbl-id
+          {:TBL_ID tbl-id
            :PART_KEY_VAL_STR (apply str args)}
-          [#(metastore/part-find metastore-ds %)
+          [#(metastore/partition-find metastore-ds %)
            #(hash-map :PART_SPEC_VAL
-                      (metastore/part-spec-vals metastore-ds %))
+                      (metastore/partition-vals-spec metastore-ds %))
            #(hive/drop-partition hive-ds %)
-           #(hdfs/unload-partition hadoop-fs %)]))
-
-(def ^:private farseer-default-spec
-  {:http/path    "/rpc"
-   :rpc/handlers {:tab/desc  {:handler/function #'rpc-tab-desc}
-                  :part/head {:handler/function #'rpc-part-head}
-                  :part/find {:handler/function #'rpc-part-find}
-                  :part/prev {:handler/function #'rpc-part-prev}
-                  :part/mark {:handler/function #'rpc-part-mark}
-                  :part/drop {:handler/function #'rpc-part-drop}}})
-
-(defmethod ig/init-key ::handler [_ {:keys [metastore hive hdfs farseer-spec]}]
-  (http/make-app (merge farseer-default-spec
-                        farseer-spec)
-                 {:metastore-ds metastore
-                  :hive-ds      hive
-                  :hadoop-fs    hdfs}))
+           #(hdfs/unload-partition hadoop-ctx %)]))

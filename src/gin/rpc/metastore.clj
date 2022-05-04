@@ -1,11 +1,12 @@
-(ns gin.storage.metastore
+(ns gin.rpc.metastore
   (:refer-clojure :exclude [partition-by])
   (:require [next.jdbc :as jdbc]
             [next.jdbc.result-set :as result-set]
             [honey.sql :as sql]
             [honey.sql.helpers :refer [with select select-distinct-on from
                                        join join-by where over order-by
-                                       partition-by window limit]])
+                                       partition-by window limit]]
+            [gin.log :refer [wrap-log-execute]])
   (:import (java.sql Array)))
 
 (extend-protocol result-set/ReadableColumn
@@ -13,15 +14,15 @@
   (read-column-by-label [^Array v _] (vec (.getArray v)))
   (read-column-by-index [^Array v _ _] (vec (.getArray v))))
 
-(defn- tab-desc-q
+(defn- table-describe-q
   [sql-params]
-  (-> (select :t/DB_ID
-              :t/TBL_ID
-              :t/SD_ID
-              :s/CD_ID
+  (-> (select :d/DB_ID
               [:d/NAME :DB_NAME]
-              :t/TBL_NAME
               :d/DB_LOCATION_URI
+              :t/TBL_ID
+              :t/TBL_NAME
+              :s/SD_ID
+              :s/CD_ID
               :s/LOCATION)
       (from [:DBS :d])
       (join-by :inner [[:TBLS :t] [:= :t/DB_ID :d/DB_ID]]
@@ -32,22 +33,40 @@
       (sql/format {:quoted true
                    :params sql-params})))
 
-(defn tab-desc
+(defn table-describe
   [connectable sql-params]
-  (jdbc/execute-one! connectable
-                     (tab-desc-q sql-params)
+  (jdbc/execute-one! (wrap-log-execute connectable "metastore/table-describe")
+                     (table-describe-q sql-params)
                      {:builder-fn result-set/as-unqualified-maps}))
 
-(defn- part-head-q
+(defn- partition-spec-q
   [sql-params]
-  (-> (select :p/TBL_ID
-              :p/SD_ID
-              :p/PART_ID
-              :p/CREATE_TIME
-              :s/CD_ID
+  (-> (select :INTEGER_IDX
+              :PKEY_NAME
+              :PKEY_TYPE)
+      (from [:PARTITION_KEYS :k])
+      (where := :k/TBL_ID [:param :TBL_ID])
+      (order-by :k/INTEGER_IDX)
+      (sql/format {:quoted true
+                   :params sql-params})))
+
+(defn partition-spec
+  [connectable sql-params]
+  (jdbc/execute! (wrap-log-execute connectable "metastore/partition-spec")
+                 (partition-spec-q sql-params)
+                 {:builder-fn result-set/as-unqualified-maps}))
+
+(defn- partition-list-q
+  [sql-params]
+  (-> (select :d/DB_ID
               [:d/NAME :DB_NAME]
+              :p/TBL_ID
               :t/TBL_NAME
+              :p/PART_ID
               :p/PART_NAME
+              :p/CREATE_TIME
+              :p/SD_ID
+              :s/CD_ID
               :s/LOCATION)
       (from [:PARTITIONS :p])
       (join-by :inner [[:SDS :s] [:= :s/SD_ID :p/SD_ID]]
@@ -59,30 +78,13 @@
       (sql/format {:quoted true
                    :params sql-params})))
 
-(defn part-head
+(defn partition-list
   [connectable sql-params]
-  (jdbc/execute! connectable
-                 (part-head-q sql-params)
+  (jdbc/execute! (wrap-log-execute connectable "metastore/partition-list")
+                 (partition-list-q sql-params)
                  {:builder-fn result-set/as-unqualified-maps}))
 
-(defn- part-spec-q
-  [sql-params]
-  (-> (select :INTEGER_IDX
-              :PKEY_NAME
-              :PKEY_TYPE)
-      (from [:PARTITION_KEYS :k])
-      (where := :k/TBL_ID [:param :TBL_ID])
-      (order-by :k/INTEGER_IDX)
-      (sql/format {:quoted true
-                   :params sql-params})))
-
-(defn part-spec
-  [connectable sql-params]
-  (jdbc/execute! connectable
-                 (part-spec-q sql-params)
-                 {:builder-fn result-set/as-unqualified-maps}))
-
-(defn- part-spec-vals-q
+(defn- partition-vals-spec-q
   [sql-params]
   (-> (select :k/INTEGER_IDX
               :k/PKEY_NAME
@@ -98,13 +100,13 @@
       (sql/format {:quoted true
                    :params sql-params})))
 
-(defn part-spec-vals
+(defn partition-vals-spec
   [connectable sql-params]
-  (jdbc/execute! connectable
-                 (part-spec-vals-q sql-params)
+  (jdbc/execute! (wrap-log-execute connectable "metastore/partition-vals-spec")
+                 (partition-vals-spec-q sql-params)
                  {:builder-fn result-set/as-unqualified-maps}))
 
-(defn- part-find-q
+(defn- partition-find-q
   [sql-params]
   (let [part-col-vals-transit-t
         (-> (select :v/*
@@ -139,58 +141,23 @@
         (sql/format {:quoted true
                      :params sql-params}))))
 
-(defn part-find
+(defn partition-find
   [connectable sql-params]
-  (jdbc/execute-one! connectable
-                     (part-find-q sql-params)
+  (jdbc/execute-one! (wrap-log-execute connectable "metastore/partition-find")
+                     (partition-find-q sql-params)
                      {:builder-fn result-set/as-unqualified-maps}))
 
-(defn- part-desc-q
+(defn- partition-parent-q
   [sql-params]
-  (let [part-cols-types-t
-        (-> (select-distinct-on [:TBL_ID]
-                                (over [[:array_agg :PKEY_NAME] :TBL_W :PART_COLS])
-                                (over [[:array_agg :PKEY_TYPE] :TBL_W :PART_TYPES])
-                                :TBL_ID)
-            (from :PARTITION_KEYS)
-            (order-by :TBL_ID [:PART_COLS :desc] [:PART_TYPES :desc])
-            (window :TBL_W (-> (partition-by :TBL_ID)
-                               (order-by :INTEGER_IDX))))]
-    (-> (with [:PART_COLS_TYPES_T part-cols-types-t])
-        (select :d/DB_ID
-                :t/TBL_ID
-                :s/SD_ID
-                :s/CD_ID
-                [:d/NAME :DB_NAME]
-                :t/TBL_NAME
-                :c/PART_COLS
-                :c/PART_TYPES
-                :s/LOCATION)
-        (from [:TBLS :t])
-        (join-by :inner [[:DBS :d] [:= :d/DB_ID :t/DB_ID]]
-                 :inner [[:SDS :s] [:= :s/SD_ID :t/SD_ID]]
-                 :inner [[:PART_COLS_TYPES_T :c] [:= :c/TBL_ID :t/TBL_ID]])
-        (where [:= :t/TBL_TYPE [:inline "EXTERNAL_TABLE"]]
-               [:= :t/TBL_ID [:param :TBL_ID]])
-        (sql/format {:quoted true
-                     :params sql-params}))))
-
-(defn part-desc
-  [connectable sql-params]
-  (jdbc/execute-one! connectable
-                     (part-desc-q sql-params)
-                     {:builder-fn result-set/as-unqualified-maps}))
-
-(defn- part-prev-q
-  [sql-params]
-  (-> (select :p/TBL_ID
-              :p/SD_ID
-              :p/PART_ID
-              :p/CREATE_TIME
-              :s/CD_ID
+  (-> (select :d/DB_ID
               [:d/NAME :DB_NAME]
+              :p/TBL_ID
               :t/TBL_NAME
+              :p/PART_ID
               :p/PART_NAME
+              :p/CREATE_TIME
+              :p/SD_ID
+              :s/CD_ID
               :s/LOCATION)
       (from [:PARTITIONS :p])
       (join-by :inner [[:SDS :s] [:= :s/SD_ID :p/SD_ID]]
@@ -203,8 +170,44 @@
       (sql/format {:quoted true
                    :params sql-params})))
 
-(defn part-prev
+(defn partition-parent
   [connectable sql-params]
-  (jdbc/execute-one! connectable
-                     (part-prev-q sql-params)
+  (jdbc/execute-one! (wrap-log-execute connectable "metastore/partition-parent")
+                     (partition-parent-q sql-params)
+                     {:builder-fn result-set/as-unqualified-maps}))
+
+(defn- partition-describe-q
+  [sql-params]
+  (let [part-cols-types-t
+        (-> (select-distinct-on [:TBL_ID]
+                                (over [[:array_agg :PKEY_NAME] :TBL_W :PART_COLS])
+                                (over [[:array_agg :PKEY_TYPE] :TBL_W :PART_TYPES])
+                                :TBL_ID)
+            (from :PARTITION_KEYS)
+            (order-by :TBL_ID [:PART_COLS :desc] [:PART_TYPES :desc])
+            (window :TBL_W (-> (partition-by :TBL_ID)
+                               (order-by :INTEGER_IDX))))]
+    (-> (with [:PART_COLS_TYPES_T part-cols-types-t])
+        (select :d/DB_ID
+                [:d/NAME :DB_NAME]
+                :t/TBL_ID
+                :t/TBL_NAME
+                :c/PART_COLS
+                :c/PART_TYPES
+                :s/SD_ID
+                :s/CD_ID
+                :s/LOCATION)
+        (from [:TBLS :t])
+        (join-by :inner [[:DBS :d] [:= :d/DB_ID :t/DB_ID]]
+                 :inner [[:SDS :s] [:= :s/SD_ID :t/SD_ID]]
+                 :inner [[:PART_COLS_TYPES_T :c] [:= :c/TBL_ID :t/TBL_ID]])
+        (where [:= :t/TBL_TYPE [:inline "EXTERNAL_TABLE"]]
+               [:= :t/TBL_ID [:param :TBL_ID]])
+        (sql/format {:quoted true
+                     :params sql-params}))))
+
+(defn partition-describe
+  [connectable sql-params]
+  (jdbc/execute-one! (wrap-log-execute connectable "metastore/partition-describe")
+                     (partition-describe-q sql-params)
                      {:builder-fn result-set/as-unqualified-maps}))
